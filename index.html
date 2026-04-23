@@ -395,7 +395,7 @@ function calc(){
   const labor=gv('labor_cost'),wh=gv('warehouse_cost'),ht=gv('ht_cost'),fU=freight/qty;
   const cutSaw=totBF*gv('cut_saw');
   const cost=wood+nailC+labor+wh+ht+cutSaw+fU;
-  const price=margin<1?cost/(1-margin):cost;
+  const price=cost*(1+margin);
   const profit=(price-cost)*qty,saleT=price*qty,costT=cost*qty;
   document.getElementById('m-cost').textContent='$'+cost.toFixed(2);
   document.getElementById('m-sale').textContent='$'+price.toFixed(2);
@@ -416,7 +416,7 @@ function buildMsg(forCust){
   const cutSaw=totBF*gv('cut_saw');
   const wood=totBF*pBF*(1+waste),nailC=nails*nailP,fU=freight/qty;
   const cost=wood+nailC+labor+wh+ht+cutSaw+fU;
-  const price=cost/(1-margin),sale=price*qty,profit=(price-cost)*qty;
+  const price=cost*(1+margin),sale=price*qty,profit=(price-cost)*qty;
   if(!forCust){
     const lines=rows.map(r=>`  • ${r.qty}x ${r.piece} [${r.t}"x${r.w}"x${r.l}"] = ${(bf(r.t,r.w,r.l)*r.qty).toFixed(2)} BF`).join('\n');
     return `🪵 *PALLET QUOTE — CCP*\n📅 Date: ${gs('date')}\n👤 Customer: ${gs('customer')||'(none)'}\n📦 Qty: ${qty} pallets\n\n*COMPONENTS:*\n${lines}\nBF/pallet: ${totBF.toFixed(2)}\n\n*COSTS (per pallet):*\n  Lumber: $${wood.toFixed(2)}\n  Nails: $${nailC.toFixed(2)}\n  Cut & Saw: $${cutSaw.toFixed(2)}\n  Labor: $${labor.toFixed(2)}\n  Warehouse: $${wh.toFixed(2)}\n  HT: $${ht.toFixed(2)}\n  Freight: $${fU.toFixed(2)}\n  *Cost/pallet: $${cost.toFixed(2)}*\n\n*Margin: ${gv('margin')}%*\n*Sale price/pallet: $${price.toFixed(2)}*\n*Total sale: $${sale.toFixed(2)}*\n*Profit: $${profit.toFixed(2)}*`;
@@ -450,7 +450,7 @@ async function exportQuote(){
   const labor=gv('labor_cost'),wh=gv('warehouse_cost'),ht=gv('ht_cost');
   const cutSaw=totBF*gv('cut_saw');
   const cost=wood+nailC+labor+wh+ht+cutSaw+fU;
-  const price=margin<1?cost/(1-margin):cost;
+  const price=cost*(1+margin);
   const sale=price*qty,profit=(price-cost)*qty,costT=cost*qty;
   const customer=gs('customer')||'Customer';
   const date=gs('date')||new Date().toISOString().split('T')[0];
