@@ -22,7 +22,7 @@ html,body{min-height:100vh;background:var(--gray-100);font-family:'DM Sans',sans
 
 .app-header{background:var(--green);color:white;padding:14px 16px;position:sticky;top:0;z-index:100;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 8px rgba(0,0,0,.2)}
 .app-header h1{font-size:17px;font-weight:600;letter-spacing:-.3px}
-.sub{font-size:11px;opacity:.75;margin-top:1px}
+.sub{font-size:14px;opacity:.9;margin-top:3px;font-weight:500}
 .header-badge{background:rgba(255,255,255,.2);border-radius:20px;padding:4px 10px;font-size:11px;font-weight:500}
 
 .page{padding:12px 12px 100px;max-width:600px;margin:0 auto}
@@ -115,7 +115,7 @@ html,body{min-height:100vh;background:var(--gray-100);font-family:'DM Sans',sans
 <header class="app-header">
   <div>
     <h1>Pallet Estimator</h1>
-    <div class="sub">Custom Crates &amp; Pallets · Las Cruces, NM</div>
+    <div class="sub">Custom Crates &amp; Pallets</div>
   </div>
   <div class="header-badge">New Pallet</div>
 </header>
@@ -126,7 +126,7 @@ html,body{min-height:100vh;background:var(--gray-100);font-family:'DM Sans',sans
     <div class="card-header">Order Information</div>
     <div class="card-body">
       <div class="grid-2 mb10">
-        <div class="field"><label>Customer</label><input type="text" id="customer" placeholder="Customer name" autocomplete="off"></div>
+        <div class="field"><label>Customer</label><input type="text" id="customer" placeholder="Customer name" autocomplete="off" style="font-size:18px;font-weight:600"></div>
         <div class="field"><label>Date</label><input type="date" id="date"></div>
       </div>
       <div class="grid-3">
@@ -144,9 +144,15 @@ html,body{min-height:100vh;background:var(--gray-100);font-family:'DM Sans',sans
         <div class="field"><label>Lumber price ($/BF)</label><input type="number" id="lumber_price" value="0.62" step="0.01" inputmode="decimal"></div>
         <div class="field"><label>Nail price ($)</label><input type="number" id="nail_price" value="0.009" step="0.001" inputmode="decimal"></div>
       </div>
-      <div class="grid-2">
+      <div class="grid-2 mb10">
         <div class="field"><label>Nails per pallet</label><input type="number" id="nails" value="0" inputmode="numeric"></div>
         <div class="field"><label>Waste %</label><input type="number" id="waste" value="15" inputmode="decimal"></div>
+      </div>
+      <div style="height:0.5px;background:var(--border);margin:4px 0 10px"></div>
+      <div class="grid-3">
+        <div class="field"><label>Labor ($/pallet)</label><input type="number" id="labor_cost" value="2.00" step="0.01" inputmode="decimal"></div>
+        <div class="field"><label>Warehouse ($/pallet)</label><input type="number" id="warehouse_cost" value="0.13" step="0.01" inputmode="decimal"></div>
+        <div class="field"><label>HT ($/pallet)</label><input type="number" id="ht_cost" value="0.30" step="0.01" inputmode="decimal"></div>
       </div>
     </div>
   </div>
@@ -334,7 +340,7 @@ function calc(){
   const qty=gv('qty')||1,margin=gv('margin')/100;
   const freight=gv('freight'),nailP=gv('nail_price'),nails=gv('nails');
   const wood=totBF*pBF*(1+waste),nailC=nails*nailP;
-  const labor=2,wh=0.13,ht=0.30,fU=freight/qty;
+  const labor=gv('labor_cost'),wh=gv('warehouse_cost'),ht=gv('ht_cost'),fU=freight/qty;
   const cost=wood+nailC+labor+wh+ht+fU;
   const price=margin<1?cost/(1-margin):cost;
   const profit=(price-cost)*qty,saleT=price*qty,costT=cost*qty;
@@ -353,15 +359,16 @@ function buildMsg(forCust){
   const totBF=rows.reduce((s,r)=>s+bf(r.t,r.w,r.l)*r.qty,0);
   const pBF=gv('lumber_price'),waste=gv('waste')/100,margin=gv('margin')/100;
   const freight=gv('freight'),nailP=gv('nail_price'),nails=gv('nails');
+  const labor=gv('labor_cost'),wh=gv('warehouse_cost'),ht=gv('ht_cost');
   const wood=totBF*pBF*(1+waste),nailC=nails*nailP,fU=freight/qty;
-  const cost=wood+nailC+2+0.13+0.30+fU;
+  const cost=wood+nailC+labor+wh+ht+fU;
   const price=cost/(1-margin),sale=price*qty,profit=(price-cost)*qty;
   if(!forCust){
     const lines=rows.map(r=>`  • ${r.qty}x ${r.piece} [${r.t}"x${r.w}"x${r.l}"] = ${(bf(r.t,r.w,r.l)*r.qty).toFixed(2)} BF`).join('\n');
-    return `🪵 *PALLET QUOTE — CCP*\n📅 Date: ${gs('date')}\n👤 Customer: ${gs('customer')||'(none)'}\n📦 Qty: ${qty} pallets\n\n*COMPONENTS:*\n${lines}\nBF/pallet: ${totBF.toFixed(2)}\n\n*COSTS (per pallet):*\n  Lumber: $${wood.toFixed(2)}\n  Nails: $${nailC.toFixed(2)}\n  Labor: $2.00\n  Warehouse: $0.13\n  HT: $0.30\n  Freight: $${fU.toFixed(2)}\n  *Cost/pallet: $${cost.toFixed(2)}*\n\n*Margin: ${gv('margin')}%*\n*Sale price/pallet: $${price.toFixed(2)}*\n*Total sale: $${sale.toFixed(2)}*\n*Profit: $${profit.toFixed(2)}*`;
+    return `🪵 *PALLET QUOTE — CCP*\n📅 Date: ${gs('date')}\n👤 Customer: ${gs('customer')||'(none)'}\n📦 Qty: ${qty} pallets\n\n*COMPONENTS:*\n${lines}\nBF/pallet: ${totBF.toFixed(2)}\n\n*COSTS (per pallet):*\n  Lumber: $${wood.toFixed(2)}\n  Nails: $${nailC.toFixed(2)}\n  Labor: $${labor.toFixed(2)}\n  Warehouse: $${wh.toFixed(2)}\n  HT: $${ht.toFixed(2)}\n  Freight: $${fU.toFixed(2)}\n  *Cost/pallet: $${cost.toFixed(2)}*\n\n*Margin: ${gv('margin')}%*\n*Sale price/pallet: $${price.toFixed(2)}*\n*Total sale: $${sale.toFixed(2)}*\n*Profit: $${profit.toFixed(2)}*`;
   } else {
     const lines=rows.map(r=>`  • ${r.qty} ${r.piece} — ${r.t}"x${r.w}"x${r.l}"`).join('\n');
-    return `Dear ${gs('customer')||'Customer'},\n\nPlease find our quote for new pallets:\n\n📅 Date: ${gs('date')}\n📦 Quantity: ${qty} pallets\n\n*SPECIFICATIONS:*\n${lines}\n\n💲 *Price per pallet: $${price.toFixed(2)}*\n💲 *Total order: $${sale.toFixed(2)}*\n\nIncludes materials, labor & freight.\n\nBest regards,\n*Custom Crates & Pallets*\nLas Cruces, NM`;
+    return `Dear ${gs('customer')||'Customer'},\n\nPlease find our quote for new pallets:\n\n📅 Date: ${gs('date')}\n📦 Quantity: ${qty} pallets\n\n*SPECIFICATIONS:*\n${lines}\n\n💲 *Price per pallet: $${price.toFixed(2)}*\n💲 *Total order: $${sale.toFixed(2)}*\n\nIncludes materials, labor & freight.\n\nBest regards,\n*Custom Crates & Pallets*`;
   }
 }
 
@@ -386,7 +393,8 @@ function exportQuote(){
   const pBF=gv('lumber_price'),waste=gv('waste')/100,margin=gv('margin')/100;
   const freight=gv('freight'),nailP=gv('nail_price'),nails=gv('nails');
   const wood=totBF*pBF*(1+waste),nailC=nails*nailP,fU=freight/qty;
-  const cost=wood+nailC+2+0.13+0.30+fU;
+  const labor=gv('labor_cost'),wh=gv('warehouse_cost'),ht=gv('ht_cost');
+  const cost=wood+nailC+labor+wh+ht+fU;
   const price=cost/(1-margin),sale=price*qty,profit=(price-cost)*qty,costT=cost*qty;
   const customer=gs('customer')||'Customer';
   const date=gs('date')||new Date().toLocaleDateString('en-US');
@@ -457,7 +465,7 @@ td:nth-child(7) strong{color:#1a6b3c;font-family:'DM Mono',monospace}
   <div class="hdr">
     <div class="hdr-left">
       <h1>Pallet Quote</h1>
-      <p>Custom Crates &amp; Pallets · Las Cruces, NM</p>
+      <p>Custom Crates &amp; Pallets</p>
     </div>
     <div class="hdr-right">
       <span>${date}</span>
@@ -501,9 +509,9 @@ td:nth-child(7) strong{color:#1a6b3c;font-family:'DM Mono',monospace}
     <div class="card-body">
       <div class="bd-row"><span class="bd-label">Lumber</span><span class="bd-val">$${wood.toFixed(2)}</span></div>
       <div class="bd-row"><span class="bd-label">Nails</span><span class="bd-val">$${nailC.toFixed(2)}</span></div>
-      <div class="bd-row"><span class="bd-label">Labor</span><span class="bd-val">$2.00</span></div>
-      <div class="bd-row"><span class="bd-label">Warehouse</span><span class="bd-val">$0.13</span></div>
-      <div class="bd-row"><span class="bd-label">HT</span><span class="bd-val">$0.30</span></div>
+      <div class="bd-row"><span class="bd-label">Labor</span><span class="bd-val">$${labor.toFixed(2)}</span></div>
+      <div class="bd-row"><span class="bd-label">Warehouse</span><span class="bd-val">$${wh.toFixed(2)}</span></div>
+      <div class="bd-row"><span class="bd-label">HT</span><span class="bd-val">$${ht.toFixed(2)}</span></div>
       <div class="bd-row"><span class="bd-label">Freight / pallet</span><span class="bd-val">$${fU.toFixed(2)}</span></div>
       <div class="tot"><span>Total order cost</span><span class="tv">$${costT.toFixed(2)}</span></div>
       <div class="tot g"><span>Total sale</span><span class="tv">$${sale.toFixed(2)}</span></div>
@@ -544,7 +552,7 @@ function resetForm(){
 }
 
 document.getElementById('date').value=new Date().toISOString().split('T')[0];
-['lumber_price','nail_price','nails','waste','qty','margin','freight'].forEach(id=>{
+['lumber_price','nail_price','nails','waste','qty','margin','freight','labor_cost','warehouse_cost','ht_cost'].forEach(id=>{
   document.getElementById(id).addEventListener('input',calc);
 });
 newRow(1,'Deck Board',1,4,48);
