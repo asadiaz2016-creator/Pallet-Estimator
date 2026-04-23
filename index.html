@@ -236,10 +236,43 @@ html,body{min-height:100vh;background:var(--gray-100);font-family:'DM Sans',sans
 <div class="toast" id="toast">Copied!</div>
 
 <script>
-const PIECES  = ['Deck Board','Stringer','Block','Bottom Board','Lead Board'];
-const THICK   = [0.5,0.625,0.75,1,1.25,1.5,2,2.5,3,3.5,4];
-const WIDTHS  = [2,2.5,3,3.5,4,4.5,5,5.5,6,7,8,10,12];
-const LENGTHS = [3.5,5.5,7,9,9.5,10,10.5,11,11.5,12,14,16,18,20,22,24,28,32,36,40,44,48,54,60,66,72,84,96,108,120];
+const PIECES = ['Deck Board','Stringer','Block','Bottom Board','Lead Board'];
+
+// Piece-specific dimension lists
+function getDims(piece){
+  const p = piece.toLowerCase();
+  const isBoard = p==='deck board'||p==='bottom board'||p==='lead board';
+  const isStringer = p==='stringer';
+  const isBlock = p==='block';
+
+  if(isBoard) return {
+    thick: [0.5,0.563,0.625,0.75,0.875,1],
+    width: [3,3.5,4,4.5,5,5.5,6],
+    length: range(20,60,2)
+  };
+  if(isStringer) return {
+    thick: [1,1.13,1.25,1.38,1.5],
+    width: [3.5,4],
+    length: range(24,72,2)
+  };
+  if(isBlock) return {
+    thick: [3,3.5,4],
+    width: [3,3.5,4],
+    length: [3,3.5,4,4.5,5,5.5,6,6.5,7]
+  };
+  // fallback
+  return {
+    thick: [0.5,0.563,0.625,0.75,0.875,1,1.25,1.5,2,3,3.5,4],
+    width: [3,3.5,4,4.5,5,5.5,6],
+    length: range(20,60,2)
+  };
+}
+
+function range(start,end,step){
+  const arr=[];
+  for(let v=start;v<=end;v+=step) arr.push(Math.round(v*1000)/1000);
+  return arr;
+}
 
 let rows=[], idc=0, curMsg='';
 
@@ -258,34 +291,50 @@ function dimOpts(arr,val,unit){
   return s;
 }
 
+// When piece changes, reset t/w/l to first valid value for new piece type
+function getDefaultDims(piece){
+  const d=getDims(piece);
+  return {t:d.thick[0], w:d.width[0], l:d.length[0]};
+}
+
 function render(){
   const tb=document.getElementById('tbody');
   tb.innerHTML='';
   rows.forEach(r=>{
     const b=bf(r.t,r.w,r.l);
-    const tL=inList(THICK,r.t),wL=inList(WIDTHS,r.w),lL=inList(LENGTHS,r.l);
+    const dims=getDims(r.piece);
+    const tL=inList(dims.thick,r.t),wL=inList(dims.width,r.w),lL=inList(dims.length,r.l);
     const tr=document.createElement('tr');
     tr.dataset.id=r.id;
     tr.innerHTML=`
       <td><input class="ti" type="number" min="1" value="${r.qty}" inputmode="numeric" oninput="sf(${r.id},'qty',this.value)"></td>
-      <td><select class="ts" onchange="sf(${r.id},'piece',this.value)">${PIECES.map(p=>`<option ${p===r.piece?'selected':''}>${p}</option>`).join('')}</select></td>
+      <td><select class="ts" onchange="pieceChange(${r.id},this.value)">${PIECES.map(p=>`<option ${p===r.piece?'selected':''}>${p}</option>`).join('')}</select></td>
       <td>
-        <select class="ts" data-rid="${r.id}" data-f="t" onchange="dc(this)">${dimOpts(THICK,r.t,'"')}</select>
-        ${!tL?`<input class="ci" type="number" step="0.01" min="0.01" value="${r.t}" inputmode="decimal" oninput="cd(${r.id},'t',this.value)">`:''}
+        <select class="ts" data-rid="${r.id}" data-f="t" onchange="dc(this)">${dimOpts(dims.thick,r.t,'"')}</select>
+        ${!tL?`<input class="ci" type="number" step="0.001" min="0.001" value="${r.t}" inputmode="decimal" oninput="cd(${r.id},'t',this.value)">`:''}
       </td>
       <td>
-        <select class="ts" data-rid="${r.id}" data-f="w" onchange="dc(this)">${dimOpts(WIDTHS,r.w,'"')}</select>
-        ${!wL?`<input class="ci" type="number" step="0.01" min="0.01" value="${r.w}" inputmode="decimal" oninput="cd(${r.id},'w',this.value)">`:''}
+        <select class="ts" data-rid="${r.id}" data-f="w" onchange="dc(this)">${dimOpts(dims.width,r.w,'"')}</select>
+        ${!wL?`<input class="ci" type="number" step="0.001" min="0.001" value="${r.w}" inputmode="decimal" oninput="cd(${r.id},'w',this.value)">`:''}
       </td>
       <td>
-        <select class="ts" data-rid="${r.id}" data-f="l" onchange="dc(this)">${dimOpts(LENGTHS,r.l,'"')}</select>
-        ${!lL?`<input class="ci" type="number" step="0.01" min="0.01" value="${r.l}" inputmode="decimal" oninput="cd(${r.id},'l',this.value)">`:''}
+        <select class="ts" data-rid="${r.id}" data-f="l" onchange="dc(this)">${dimOpts(dims.length,r.l,'"')}</select>
+        ${!lL?`<input class="ci" type="number" step="0.001" min="0.001" value="${r.l}" inputmode="decimal" oninput="cd(${r.id},'l',this.value)">`:''}
       </td>
       <td class="bf-r" id="bf${r.id}">${b.toFixed(2)}</td>
       <td class="bf-r"><span class="bf-bold" id="tbf${r.id}">${(b*r.qty).toFixed(2)}</span></td>
       <td><button class="del-btn" onclick="delRow(${r.id})">×</button></td>`;
     tb.appendChild(tr);
   });
+}
+
+function pieceChange(id, val){
+  const r=rows.find(x=>x.id===id); if(!r) return;
+  r.piece=val;
+  // reset dims to defaults for new piece type
+  const def=getDefaultDims(val);
+  r.t=def.t; r.w=def.w; r.l=def.l;
+  render(); calc();
 }
 
 function dc(sel){
@@ -317,8 +366,7 @@ function cd(id,field,val){
 
 function sf(id,field,val){
   const r=rows.find(x=>x.id===id);if(!r)return;
-  if(field==='piece'){r.piece=val;}
-  else{const n=parseFloat(val);if(!isNaN(n)&&n>0)r[field]=n;}
+  const n=parseFloat(val);if(!isNaN(n)&&n>0)r[field]=n;
   rbf(r);calc();
 }
 
