@@ -212,6 +212,33 @@ html,body{min-height:100vh;background:var(--gray-100);font-family:'DM Sans',sans
     <div class="bf-bar" data-modes="nueva combinada madera"><span id="lbl-totbf">Total BF / pallet:</span> <span id="total-bf">0.00</span></div>
   </div>
 
+  <div class="card" data-modes="nueva combinada remanufacturada">
+    <div class="card-header">Load Capacity</div>
+    <div class="card-body" style="padding:10px 14px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:7px">
+        <div class="fp"><label>Species</label>
+          <select class="ts" id="species" onchange="speciesChange(this.value)">
+            <option>Ponderosa Pine</option>
+            <option>Southern Yellow Pine</option>
+            <option>Douglas Fir-Larch</option>
+            <option>Spruce-Pine-Fir (SPF)</option>
+          </select>
+        </div>
+        <div class="fp"><label>MOR (psi)</label><input type="number" id="mor_psi" value="8700" step="1" inputmode="decimal"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px">
+        <div class="fp"><label>Safety Factor</label><input type="number" id="safety_factor" value="4" step="0.5" inputmode="decimal"></div>
+        <div class="fp"><label># Stringers</label><input type="number" id="stringer_count" value="3" min="2" step="1" inputmode="numeric"></div>
+      </div>
+    </div>
+    <div class="bf-bar">
+      <div style="width:100%;text-align:right">
+        <div>Est. static load capacity: <span id="load-capacity" style="font-family:'DM Mono',monospace;font-size:15px">0 lb</span></div>
+        <div style="font-size:10px;font-weight:500;opacity:.75;text-align:right">Estimate only — deck-board bending strength, not a certified/tested rating.</div>
+      </div>
+    </div>
+  </div>
+
   <div class="metrics">
     <div class="metric"><div class="mlabel" id="lbl-cost">Cost/pallet</div><div class="mvalue" id="m-cost">$0.00</div></div>
     <div class="metric hi"><div class="mlabel" id="lbl-sale">Sale/pallet</div><div class="mvalue" id="m-sale">$0.00</div></div>
@@ -304,6 +331,29 @@ function range(start,end,step){
 
 let rows=[], idc=0, curMsg='', mode='nueva';
 const MODE_LABEL={nueva:'New',combinada:'Combined',remanufacturada:'Remanufactured',madera:'Wood'};
+const SPECIES_MOR={'Ponderosa Pine':8700,'Southern Yellow Pine':12800,'Douglas Fir-Larch':12400,'Spruce-Pine-Fir (SPF)':9700};
+
+function speciesChange(val){
+  const m=SPECIES_MOR[val];
+  if(m!==undefined) document.getElementById('mor_psi').value=m;
+  calc();
+}
+
+function computeLoadCapacity(){
+  const stringerCount=gv('stringer_count');
+  const mor=gv('mor_psi'),sf=gv('safety_factor')||1;
+  const deckRows=rows.filter(r=>r.piece==='Deck Board'||r.piece==='Lead Board');
+  if(deckRows.length===0||stringerCount<2) return {capacity:0,span:0};
+  const Fb=mor/sf;
+  const span=deckRows[0].l/(stringerCount-1);
+  let capacity=0;
+  deckRows.forEach(r=>{
+    const S=(r.w*r.t*r.t)/6;
+    const wMax=(8*Fb*S)/(span*span);
+    capacity+=wMax*span*r.qty;
+  });
+  return {capacity,span};
+}
 
 function newRow(qty=1,piece='Deck Board',t=1,w=4,l=48){rows.push({id:idc++,qty,piece,t,w,l,cond:'new',rprice:0.20});}
 
@@ -529,6 +579,9 @@ function calc(){
   document.getElementById('total-sale').textContent='$'+(q.price*q.divisor).toFixed(2);
   document.getElementById('breakdown').innerHTML=q.items.map(([l,v])=>
     `<div class="bd-item"><span class="bl">${l}</span><span class="bv">$${v.toFixed(2)}</span></div>`).join('');
+  const lc=computeLoadCapacity();
+  const lcEl=document.getElementById('load-capacity');
+  if(lcEl) lcEl.textContent=`${lc.capacity.toFixed(0)} lb (${(lc.capacity/2.2046).toFixed(0)} kg)`;
 }
 
 function buildMsg(){
@@ -540,7 +593,12 @@ function buildMsg(){
   const sale=q.price*q.divisor;
   const lines=rows.map(r=>`  • ${r.qty} ${r.piece}${effCond(r)==='recycled'?' (reciclado)':''} — ${r.t}"x${r.w}"x${r.l}"`).join('\n');
   const qtyLine=mode==='madera'?`📦 Total board feet: ${q.newBF.toFixed(2)} BF`:`📦 Quantity: ${q.qty} pallets`;
-  return `Dear ${gs('customer')||'Customer'},\n\nPlease find our quote:\n\n📅 Date: ${gs('date')}\n${qtyLine}${palletSize?'\n📐 Pallet size: '+palletSize:''}\n\n*SPECIFICATIONS:*\n${lines}\n\n💲 *Price per ${unitWord}: $${q.price.toFixed(2)}*\n💲 *Total order: $${sale.toFixed(2)}*\n\nIncludes materials, labor & ${mode==='madera'?'transport':'freight'}.\n\nBest regards,\n*Custom Crates & Pallets*`;
+  let lcLine='';
+  if(mode!=='madera'){
+    const lc=computeLoadCapacity();
+    if(lc.capacity>0) lcLine=`\n⚖️ Est. load capacity: ${lc.capacity.toFixed(0)} lb (${(lc.capacity/2.2046).toFixed(0)} kg) — estimate only, not a certified rating`;
+  }
+  return `Dear ${gs('customer')||'Customer'},\n\nPlease find our quote:\n\n📅 Date: ${gs('date')}\n${qtyLine}${palletSize?'\n📐 Pallet size: '+palletSize:''}\n\n*SPECIFICATIONS:*\n${lines}\n\n💲 *Price per ${unitWord}: $${q.price.toFixed(2)}*\n💲 *Total order: $${sale.toFixed(2)}*${lcLine}\n\nIncludes materials, labor & ${mode==='madera'?'transport':'freight'}.\n\nBest regards,\n*Custom Crates & Pallets*`;
 }
 
 function openModal(){
@@ -678,7 +736,9 @@ async function exportQuote(){
   const newRows=rows.filter(r=>effCond(r)==='new');
   const recycledRows=rows.filter(r=>effCond(r)==='recycled');
 
+  const componentRowMap=[];
   function writeComponentRow(rr,d,isRecycled,bg){
+    componentRowMap.push({piece:d.piece,row:rr});
     ws.getRow(rr).height=20;
     sc(ws,rr,2,{val:d.qty,bg,halign:'center',color:'0000FF'});
     sc(ws,rr,3,{val:d.piece,bg});
@@ -729,6 +789,54 @@ async function exportQuote(){
     r++;
   }
   ws.getRow(r).height=6; r++;
+
+  // LOAD CAPACITY (ESTIMATE) — deck-board bending, not a certified/tested rating.
+  // Skipped in Wood mode: there's no assembled deck to estimate a span for.
+  let lcRow=null;
+  if(mode!=='madera'){
+    const deckLines=componentRowMap.filter(c=>c.piece==='Deck Board'||c.piece==='Lead Board');
+    if(deckLines.length){
+      ws.getRow(r).height=18;
+      mg(ws,r,2,10,{val:'LOAD CAPACITY (ESTIMATE)',bold:true,size:8,color:GTXT,bg:GHDR});
+      r++;
+      ws.getRow(r).height=24;
+      sc(ws,r,2,{val:'Species',bold:true,size:9,color:GTXT,bg:GHDR});
+      ws.mergeCells(r,3,r,4); sc(ws,r,3,{val:gs('species'),size:10,color:'0000FF'});
+      sc(ws,r,5,{val:'MOR (psi)',bold:true,size:9,color:GTXT,bg:GHDR});
+      sc(ws,r,6,{val:gv('mor_psi'),size:10,color:'0000FF',numFmt:'#,##0'});
+      sc(ws,r,7,{val:'Safety Factor',bold:true,size:9,color:GTXT,bg:GHDR});
+      sc(ws,r,8,{val:gv('safety_factor'),size:10,color:'0000FF',numFmt:'0.0'});
+      sc(ws,r,9,{val:'# Stringers',bold:true,size:9,color:GTXT,bg:GHDR});
+      sc(ws,r,10,{val:gv('stringer_count'),size:10,color:'0000FF',numFmt:'0'});
+      const morCell=`F${r}`,sfCell=`H${r}`,stCell=`J${r}`;
+      r++;
+      ws.getRow(r).height=22;
+      sc(ws,r,2,{val:'Span between stringers (in)',size:10,color:GTXT});
+      ws.mergeCells(r,3,r,4); sc(ws,r,3,{formula:`F${deckLines[0].row}/(${stCell}-1)`,size:10,halign:'right',numFmt:'0.00'});
+      const spanCell=`C${r}`;
+      r++;
+      const capStart=r;
+      deckLines.forEach((c,idx)=>{
+        ws.getRow(r).height=20;
+        const bg=idx%2===0?'FFFFFF':GALT;
+        ws.mergeCells(r,2,r,7); sc(ws,r,2,{val:`Capacity — ${c.piece} (row ${c.row})`,size:10,color:GTXT,bg});
+        sc(ws,r,8,{formula:`8*(${morCell}/${sfCell})*(E${c.row}*D${c.row}^2/6)/${spanCell}*B${c.row}`,bg,halign:'right',numFmt:'#,##0'});
+        [9,10].forEach(cc=>sc(ws,r,cc,{bg,useBorder:false}));
+        r++;
+      });
+      const capEnd=r-1;
+      lcRow=r; ws.getRow(lcRow).height=26;
+      ws.mergeCells(lcRow,2,lcRow,6); sc(ws,lcRow,2,{val:'Est. Static Load Capacity',bold:true,size:11,color:'FFFFFF',bg:BRAND});
+      sc(ws,lcRow,7,{formula:`SUM(H${capStart}:H${capEnd})`,bold:true,size:11,color:'FFFFFF',bg:BRAND,halign:'right',numFmt:'#,##0" lb"'});
+      ws.mergeCells(lcRow,8,lcRow,10);
+      sc(ws,lcRow,8,{formula:`G${lcRow}/2.2046`,bold:true,size:11,color:'FFFFFF',bg:BRAND,halign:'right',numFmt:'#,##0" kg"'});
+      r++;
+      ws.getRow(r).height=16;
+      mg(ws,r,2,10,{val:'Estimate only — deck-board bending strength, not a certified/tested rating.',size:8,color:GTXT,italic:true,useBorder:false});
+      r++;
+    }
+    ws.getRow(r).height=6; r++;
+  }
 
   // now that totRow is known, fill in J5 — a plain Qty input for pallet modes,
   // or a live link to the Total Board Feet banner for Wood mode
@@ -864,7 +972,7 @@ function resetForm(){
 }
 
 document.getElementById('date').value=new Date().toISOString().split('T')[0];
-['lumber_price','nail_price','nails','waste','qty','margin','freight','labor_cost','warehouse_cost','ht_cost','cut_saw'].forEach(id=>{
+['lumber_price','nail_price','nails','waste','qty','margin','freight','labor_cost','warehouse_cost','ht_cost','cut_saw','mor_psi','safety_factor','stringer_count'].forEach(id=>{
   document.getElementById(id).addEventListener('input',calc);
 });
 newRow(1,'Deck Board',0.625,3.5,40);
