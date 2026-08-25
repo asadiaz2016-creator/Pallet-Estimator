@@ -345,7 +345,10 @@ function computeLoadCapacity(){
   const deckRows=rows.filter(r=>r.piece==='Deck Board'||r.piece==='Lead Board');
   if(deckRows.length===0||stringerCount<2) return {capacity:0,span:0};
   const Fb=mor/sf;
-  const span=deckRows[0].l/(stringerCount-1);
+  const stringerRow=rows.find(r=>r.piece==='Stringer');
+  const stringerWidth=stringerRow?stringerRow.t:0; // stringer's cross-pallet width (our "thick" field for Stringer rows)
+  const span=(deckRows[0].l-stringerCount*stringerWidth)/(stringerCount-1);
+  if(span<=0) return {capacity:0,span:0};
   let capacity=0;
   deckRows.forEach(r=>{
     const S=(r.w*r.t*r.t)/6;
@@ -812,7 +815,11 @@ async function exportQuote(){
       r++;
       ws.getRow(r).height=22;
       sc(ws,r,2,{val:'Span between stringers (in)',size:10,color:GTXT});
-      ws.mergeCells(r,3,r,4); sc(ws,r,3,{formula:`F${deckLines[0].row}/(${stCell}-1)`,size:10,halign:'right',numFmt:'0.00'});
+      const stringerLine=componentRowMap.find(c=>c.piece==='Stringer');
+      const spanFormula=stringerLine
+        ? `(F${deckLines[0].row}-${stCell}*D${stringerLine.row})/(${stCell}-1)`
+        : `F${deckLines[0].row}/(${stCell}-1)`;
+      ws.mergeCells(r,3,r,4); sc(ws,r,3,{formula:spanFormula,size:10,halign:'right',numFmt:'0.00'});
       const spanCell=`C${r}`;
       r++;
       const capStart=r;
