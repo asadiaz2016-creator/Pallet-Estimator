@@ -233,8 +233,8 @@ html,body{min-height:100vh;background:var(--gray-100);font-family:'DM Sans',sans
     </div>
     <div class="bf-bar">
       <div style="width:100%;text-align:right">
-        <div>Est. static load capacity: <span id="load-capacity" style="font-family:'DM Mono',monospace;font-size:15px">0 lb</span></div>
-        <div style="font-size:10px;font-weight:500;opacity:.75;text-align:right">Estimate only — deck-board bending strength, not a certified/tested rating.</div>
+        <div>Est. floor load capacity (1 unit, no stacking): <span id="load-capacity" style="font-family:'DM Mono',monospace;font-size:15px">0 lb</span></div>
+        <div style="font-size:10px;font-weight:500;opacity:.75;text-align:right">Estimate only — single pallet on the floor, deck-board bending strength, not a certified/tested rating.</div>
       </div>
     </div>
   </div>
@@ -599,7 +599,7 @@ function buildMsg(){
   let lcLine='';
   if(mode!=='madera'){
     const lc=computeLoadCapacity();
-    if(lc.capacity>0) lcLine=`\n⚖️ Est. load capacity: ${lc.capacity.toFixed(0)} lb (${(lc.capacity/2.2046).toFixed(0)} kg) — estimate only, not a certified rating`;
+    if(lc.capacity>0) lcLine=`\n⚖️ Est. floor load capacity (1 unit, no stacking): ${lc.capacity.toFixed(0)} lb (${(lc.capacity/2.2046).toFixed(0)} kg) — estimate only, not a certified rating`;
   }
   return `Dear ${gs('customer')||'Customer'},\n\nPlease find our quote:\n\n📅 Date: ${gs('date')}\n${qtyLine}${palletSize?'\n📐 Pallet size: '+palletSize:''}\n\n*SPECIFICATIONS:*\n${lines}\n\n💲 *Price per ${unitWord}: $${q.price.toFixed(2)}*\n💲 *Total order: $${sale.toFixed(2)}*${lcLine}\n\nIncludes materials, labor & ${mode==='madera'?'transport':'freight'}.\n\nBest regards,\n*Custom Crates & Pallets*`;
 }
@@ -833,13 +833,13 @@ async function exportQuote(){
       });
       const capEnd=r-1;
       lcRow=r; ws.getRow(lcRow).height=26;
-      ws.mergeCells(lcRow,2,lcRow,6); sc(ws,lcRow,2,{val:'Est. Static Load Capacity',bold:true,size:11,color:'FFFFFF',bg:BRAND});
+      ws.mergeCells(lcRow,2,lcRow,6); sc(ws,lcRow,2,{val:'Est. Floor Load Capacity (1 unit, no stacking)',bold:true,size:11,color:'FFFFFF',bg:BRAND});
       sc(ws,lcRow,7,{formula:`SUM(H${capStart}:H${capEnd})`,bold:true,size:11,color:'FFFFFF',bg:BRAND,halign:'right',numFmt:'#,##0" lb"'});
       ws.mergeCells(lcRow,8,lcRow,10);
       sc(ws,lcRow,8,{formula:`G${lcRow}/2.2046`,bold:true,size:11,color:'FFFFFF',bg:BRAND,halign:'right',numFmt:'#,##0" kg"'});
       r++;
       ws.getRow(r).height=16;
-      mg(ws,r,2,10,{val:'Estimate only — deck-board bending strength, not a certified/tested rating.',size:8,color:GTXT,italic:true,useBorder:false});
+      mg(ws,r,2,10,{val:'Estimate only — single pallet on the floor, deck-board bending strength, not a certified/tested rating.',size:8,color:GTXT,italic:true,useBorder:false});
       r++;
     }
     ws.getRow(r).height=6; r++;
