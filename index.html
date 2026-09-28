@@ -332,6 +332,7 @@ function range(start,end,step){
 let rows=[], idc=0, curMsg='', mode='nueva';
 const MODE_LABEL={nueva:'New',combinada:'Combined',remanufacturada:'Remanufactured',madera:'Wood'};
 const SPECIES_MOR={'Ponderosa Pine':8700,'Southern Yellow Pine':12800,'Douglas Fir-Larch':12400,'Spruce-Pine-Fir (SPF)':9700};
+const HABILITADA_SKUS={'3.5':{w:3.5,price:0.55},'5.5':{w:5.5,price:0.83}};
 
 function speciesChange(val){
   const m=SPECIES_MOR[val];
@@ -361,9 +362,11 @@ function computeLoadCapacity(){
 function newRow(qty=1,piece='Deck Board',t=1,w=4,l=48){rows.push({id:idc++,qty,piece,t,w,l,cond:'new',rprice:0.20});}
 
 function effCond(r){
-  if(mode==='madera'||mode==='nueva') return 'new';
+  if(mode==='madera') return 'new';
   if(mode==='remanufacturada') return 'recycled';
-  return r.cond||'new';
+  if(r.cond==='habilitada') return 'habilitada';
+  if(mode==='combinada'&&r.cond==='recycled') return 'recycled';
+  return 'new';
 }
 
 function setMode(m){
@@ -415,8 +418,9 @@ function render(){
   rows.forEach(r=>{
     const b=bf(r.t,r.w,r.l);
     const ec=effCond(r);
-    const bfText=ec==='recycled'?'—':b.toFixed(2);
-    const tbfText=ec==='recycled'?'$'+(r.qty*r.rprice).toFixed(2):(b*r.qty).toFixed(2);
+    const flat=(ec==='recycled'||ec==='habilitada');
+    const bfText=flat?'—':b.toFixed(2);
+    const tbfText=flat?'$'+(r.qty*r.rprice).toFixed(2):(b*r.qty).toFixed(2);
     const dims=getDims(r.piece);
     const tL=inList(dims.thick,r.t),wL=inList(dims.width,r.w),lL=inList(dims.length,r.l);
     const tr=document.createElement('tr');
@@ -425,8 +429,9 @@ function render(){
       <td><input class="ti" type="number" min="1" value="${r.qty}" inputmode="numeric" oninput="sf(${r.id},'qty',this.value)"></td>
       <td>
         <select class="ts" onchange="pieceChange(${r.id},this.value)">${PIECES.map(p=>`<option ${p===r.piece?'selected':''}>${p}</option>`).join('')}</select>
-        ${mode==='combinada'?`<select class="ts cond-ts" onchange="condChange(${r.id},this.value)"><option value="new" ${r.cond!=='recycled'?'selected':''}>New</option><option value="recycled" ${r.cond==='recycled'?'selected':''}>Recycled</option></select>`:''}
+        ${(mode==='nueva'||mode==='combinada')?`<select class="ts cond-ts" onchange="condChange(${r.id},this.value)"><option value="new" ${r.cond!=='recycled'&&r.cond!=='habilitada'?'selected':''}>New</option>${mode==='combinada'?`<option value="recycled" ${r.cond==='recycled'?'selected':''}>Recycled</option>`:''}<option value="habilitada" ${r.cond==='habilitada'?'selected':''}>Habilitada</option></select>`:''}
         ${effCond(r)==='recycled'?`<input class="ci" type="number" step="0.01" min="0" value="${r.rprice}" inputmode="decimal" placeholder="$/pc" oninput="rp(${r.id},this.value)">`:''}
+        ${effCond(r)==='habilitada'?`<select class="ts cond-ts" onchange="habilitadaChange(${r.id},this.value)"><option value="3.5" ${near(r.w,3.5)?'selected':''}>3.5" — $0.55</option><option value="5.5" ${near(r.w,5.5)?'selected':''}>5.5" — $0.83</option></select><input class="ci" type="number" step="0.01" min="0" value="${r.rprice}" inputmode="decimal" placeholder="$/pc" oninput="rp(${r.id},this.value)">`:''}
       </td>
       <td>
         <select class="ts" data-rid="${r.id}" data-f="t" onchange="dc(this)">${dimOpts(dims.thick,r.t,'"')}</select>
@@ -459,6 +464,17 @@ function pieceChange(id, val){
 function condChange(id, val){
   const r=rows.find(x=>x.id===id); if(!r) return;
   r.cond=val;
+  if(val==='habilitada'){
+    const sku=HABILITADA_SKUS['3.5'];
+    r.t=0.625; r.w=sku.w; r.l=40; r.rprice=sku.price;
+  }
+  render(); calc();
+}
+
+function habilitadaChange(id, val){
+  const r=rows.find(x=>x.id===id); if(!r) return;
+  const sku=HABILITADA_SKUS[val]; if(!sku) return;
+  r.t=0.625; r.w=sku.w; r.l=40; r.rprice=sku.price;
   render(); calc();
 }
 
@@ -504,11 +520,11 @@ function sf(id,field,val){
 
 function rbf(r){
   const b=bf(r.t,r.w,r.l);
-  const ec=effCond(r);
+  const flat=(effCond(r)==='recycled'||effCond(r)==='habilitada');
   const e1=document.getElementById('bf'+r.id);
   const e2=document.getElementById('tbf'+r.id);
-  if(e1)e1.textContent=ec==='recycled'?'—':b.toFixed(2);
-  if(e2)e2.textContent=ec==='recycled'?'$'+(r.qty*r.rprice).toFixed(2):(b*r.qty).toFixed(2);
+  if(e1)e1.textContent=flat?'—':b.toFixed(2);
+  if(e2)e2.textContent=flat?'$'+(r.qty*r.rprice).toFixed(2):(b*r.qty).toFixed(2);
 }
 
 function gv(id){return parseFloat(document.getElementById(id).value)||0;}
@@ -526,18 +542,21 @@ function computeQuote(){
   const newBF=rows.reduce((s,r)=>s+(effCond(r)==='new'?bf(r.t,r.w,r.l)*r.qty:0),0);
   const recycledBF=rows.reduce((s,r)=>s+(effCond(r)==='recycled'?bf(r.t,r.w,r.l)*r.qty:0),0);
   const recycledCost=rows.reduce((s,r)=>s+(effCond(r)==='recycled'?r.qty*r.rprice:0),0);
+  const habilitadaCost=rows.reduce((s,r)=>s+(effCond(r)==='habilitada'?r.qty*r.rprice:0),0);
   const totBF=newBF+recycledBF;
 
   let items=[],cost=0,divisor=qty,unit='pallet';
 
   if(mode==='nueva'){
     const wood=newBF*pBF*(1+waste),nailC=nails*nailP,cutSaw=newBF*cutSawRate,fU=freight/qty;
-    cost=wood+nailC+cutSaw+labor+wh+ht+fU;
+    cost=wood+nailC+cutSaw+labor+wh+ht+fU+habilitadaCost;
     items=[['Lumber',wood],['Nails',nailC],['Cut & Saw',cutSaw],['Labor',labor],['Warehouse',wh],['HT',ht],['Freight/pallet',fU]];
+    if(habilitadaCost>0) items.splice(1,0,['Habilitada',habilitadaCost]);
   } else if(mode==='combinada'){
     const wood=newBF*pBF*(1+waste),nailC=nails*nailP,cutSaw=newBF*cutSawRate,fU=freight/qty;
-    cost=wood+recycledCost+nailC+cutSaw+labor+wh+ht+fU;
+    cost=wood+recycledCost+nailC+cutSaw+labor+wh+ht+fU+habilitadaCost;
     items=[['Lumber',wood],['Recycled materials',recycledCost],['Nails',nailC],['Cut & Saw',cutSaw],['Labor',labor],['Warehouse',wh],['HT',ht],['Freight/pallet',fU]];
+    if(habilitadaCost>0) items.splice(2,0,['Habilitada',habilitadaCost]);
   } else if(mode==='remanufacturada'){
     const nailC=nails*nailP,fU=freight/qty;
     cost=recycledCost+nailC+labor+wh+ht+fU;
@@ -552,7 +571,7 @@ function computeQuote(){
 
   const price=cost*(1+margin);
   const d=divisor||0;
-  return {qty,margin,totBF,newBF,recycledBF,recycledCost,cost,price,items,divisor:d,unit,freight};
+  return {qty,margin,totBF,newBF,recycledBF,recycledCost,habilitadaCost,cost,price,items,divisor:d,unit,freight};
 }
 
 function calc(){
@@ -738,9 +757,10 @@ async function exportQuote(){
 
   const newRows=rows.filter(r=>effCond(r)==='new');
   const recycledRows=rows.filter(r=>effCond(r)==='recycled');
+  const habilitadaRows=rows.filter(r=>effCond(r)==='habilitada');
 
   const componentRowMap=[];
-  function writeComponentRow(rr,d,isRecycled,bg){
+  function writeComponentRow(rr,d,isFlat,bg){
     componentRowMap.push({piece:d.piece,row:rr});
     ws.getRow(rr).height=20;
     sc(ws,rr,2,{val:d.qty,bg,halign:'center',color:'0000FF'});
@@ -748,16 +768,16 @@ async function exportQuote(){
     sc(ws,rr,4,{val:d.t,bg,halign:'center',numFmt:'0.000',color:'0000FF'});
     sc(ws,rr,5,{val:d.w,bg,halign:'center',numFmt:'0.000',color:'0000FF'});
     sc(ws,rr,6,{val:d.l,bg,halign:'center',numFmt:'0.000',color:'0000FF'});
-    if(isRecycled){
+    if(isFlat){
       sc(ws,rr,7,{val:d.rprice,bg,halign:'right',numFmt:'"$"#,##0.00',color:'0000FF'});
     } else {
       sc(ws,rr,7,{formula:`D${rr}*E${rr}*F${rr}/144`,bg,halign:'right',numFmt:'#,##0.00'});
     }
-    sc(ws,rr,8,{formula:`B${rr}*G${rr}`,bold:true,color:BRAND,bg,halign:'right',numFmt:isRecycled?'"$"#,##0.00':'#,##0.00'});
+    sc(ws,rr,8,{formula:`B${rr}*G${rr}`,bold:true,color:BRAND,bg,halign:'right',numFmt:isFlat?'"$"#,##0.00':'#,##0.00'});
     [9,10].forEach(c=>sc(ws,rr,c,{bg,useBorder:false}));
   }
 
-  let r=14,newStart=null,newEnd=null,recStart=null,recEnd=null,i=0;
+  let r=14,newStart=null,newEnd=null,recStart=null,recEnd=null,habStart=null,habEnd=null,i=0;
   if(newRows.length){
     newStart=r;
     newRows.forEach(d=>{ writeComponentRow(r,d,false,i%2===0?'FFFFFF':GALT); r++; i++; });
@@ -774,9 +794,20 @@ async function exportQuote(){
     recycledRows.forEach(d=>{ writeComponentRow(r,d,true,i%2===0?'FFFFFF':GALT); r++; i++; });
     recEnd=r-1;
   }
+  if(habilitadaRows.length&&(newRows.length||recycledRows.length)){
+    ws.getRow(r).height=18;
+    mg(ws,r,2,7,{val:'HABILITADA (PRE-DIMENSIONED) COMPONENTS',bold:true,size:9,color:BRAND,bg:BLIGHT});
+    [9,10].forEach(c=>sc(ws,r,c,{bg:BLIGHT,useBorder:false}));
+    r++;
+  }
+  if(habilitadaRows.length){
+    habStart=r;
+    habilitadaRows.forEach(d=>{ writeComponentRow(r,d,true,i%2===0?'FFFFFF':GALT); r++; i++; });
+    habEnd=r-1;
+  }
 
-  // Total Board Feet banner (new lumber only) + Total Recycled Materials banner (recycled only)
-  let totRow=null,recycledTotRow=null;
+  // Total Board Feet banner (new lumber only) + Total Recycled/Habilitada Materials banners
+  let totRow=null,recycledTotRow=null,habilitadaTotRow=null;
   if(newStart){
     totRow=r; ws.getRow(totRow).height=22;
     ws.mergeCells(totRow,2,totRow,7); sc(ws,totRow,2,{val:mode==='madera'?'Total Board Feet (order)':'Total Board Feet / pallet',bold:true,size:10,color:'FFFFFF',bg:BMID,halign:'right'});
@@ -789,6 +820,13 @@ async function exportQuote(){
     ws.mergeCells(recycledTotRow,2,recycledTotRow,7); sc(ws,recycledTotRow,2,{val:'Total Recycled Materials',bold:true,size:10,color:'FFFFFF',bg:BMID,halign:'right'});
     sc(ws,recycledTotRow,8,{formula:`SUM(H${recStart}:H${recEnd})`,bold:true,size:11,color:'FFFFFF',bg:BMID,halign:'center',numFmt:'"$"#,##0.00'});
     [9,10].forEach(c=>sc(ws,recycledTotRow,c,{bg:BMID,useBorder:false}));
+    r++;
+  }
+  if(habStart){
+    habilitadaTotRow=r; ws.getRow(habilitadaTotRow).height=22;
+    ws.mergeCells(habilitadaTotRow,2,habilitadaTotRow,7); sc(ws,habilitadaTotRow,2,{val:'Total Habilitada Materials',bold:true,size:10,color:'FFFFFF',bg:BMID,halign:'right'});
+    sc(ws,habilitadaTotRow,8,{formula:`SUM(H${habStart}:H${habEnd})`,bold:true,size:11,color:'FFFFFF',bg:BMID,halign:'center',numFmt:'"$"#,##0.00'});
+    [9,10].forEach(c=>sc(ws,habilitadaTotRow,c,{bg:BMID,useBorder:false}));
     r++;
   }
   ws.getRow(r).height=6; r++;
@@ -856,6 +894,7 @@ async function exportQuote(){
 
   const totBFRef=totRow?`H${totRow}`:null;
   const recycledRef=recycledTotRow?`H${recycledTotRow}`:null;
+  const habilitadaRef=habilitadaTotRow?`H${habilitadaTotRow}`:null;
 
   // BREAKDOWN + SUMMARY — every line is a formula referencing the input cells above
   const bdHdr=r;
@@ -874,6 +913,7 @@ async function exportQuote(){
       ['HT',A.ht],
       ['Freight/pallet',`IFERROR(${A.freight}/${A.qty},0)`],
     ];
+    if(habilitadaRef) bdItems.splice(1,0,['Habilitada',habilitadaRef]);
   } else if(mode==='combinada'){
     bdItems=[
       ['Lumber',totBFRef?`${totBFRef}*${A.lumberPrice}*(1+${A.waste})`:null],
@@ -885,6 +925,7 @@ async function exportQuote(){
       ['HT',A.ht],
       ['Freight/pallet',`IFERROR(${A.freight}/${A.qty},0)`],
     ];
+    if(habilitadaRef) bdItems.splice(2,0,['Habilitada',habilitadaRef]);
   } else if(mode==='remanufacturada'){
     bdItems=[
       ['Recycled materials',recycledRef],
