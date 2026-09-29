@@ -48,11 +48,17 @@ html,body{min-height:100vh;background:var(--gray-100);font-family:'DM Sans',sans
 .fp input{height:34px;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:0 8px;font-size:13px;font-family:'DM Sans',sans-serif;color:var(--gray-800);background:white;width:100%;-webkit-appearance:none;appearance:none}
 .fp input:focus{outline:none;border-color:var(--brand)}
 
-/* compact table */
-.ct{width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed}
-.ct th{font-size:10px;color:var(--gray-600);font-weight:600;text-transform:uppercase;letter-spacing:.8px;padding:6px 3px;border-bottom:1.5px solid var(--border);text-align:left;white-space:nowrap}
-.ct td{padding:4px 3px;border-bottom:1px solid var(--gray-100);vertical-align:top}
-.ct tr:last-child td{border-bottom:none}
+/* component cards */
+.comp-card{border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--gray-50);padding:10px;margin-bottom:10px}
+.comp-row1{display:flex;align-items:center;gap:6px;margin-bottom:8px}
+.comp-row1 .comp-piece{flex:1}
+.comp-row1 .comp-qty{width:54px;flex-shrink:0;text-align:center}
+.comp-row1 .del-btn{margin-top:0}
+.comp-cond{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.comp-cond>*{flex:1;min-width:90px}
+.comp-dims{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px}
+.dim-f label{display:block;font-size:9px;font-weight:600;color:var(--gray-600);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px}
+.comp-foot{display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--gray-600);padding-top:8px;border-top:1px dashed var(--border)}
 
 .ti{height:30px;border:1px solid var(--border);border-radius:6px;padding:0 5px;font-size:12px;font-family:'DM Sans',sans-serif;color:var(--gray-800);background:white;width:100%;-webkit-appearance:none;appearance:none;display:block}
 .ts{height:30px;border:1px solid var(--border);border-radius:6px;padding:0 3px;font-size:12px;font-family:'DM Sans',sans-serif;color:var(--gray-800);background:white;width:100%;-webkit-appearance:none;appearance:none;display:block;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'%3E%3Cpath d='M1 1l3 3 3-3' stroke='%239aa0a6' stroke-width='1.2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 4px center;padding-right:16px}
@@ -60,7 +66,6 @@ html,body{min-height:100vh;background:var(--gray-100);font-family:'DM Sans',sans
 .ci{height:28px;border:1.5px solid var(--brand);border-radius:6px;padding:0 5px;font-size:12px;font-family:'DM Mono',monospace;color:var(--gray-800);background:white;width:100%;-webkit-appearance:none;margin-top:3px;display:block}
 .ci:focus{outline:none}
 
-.bf-r{font-size:11px;color:var(--gray-600);text-align:right;padding-right:2px !important}
 .bf-bold{font-size:12px;font-weight:600;color:var(--brand);font-family:'DM Mono',monospace}
 
 .del-btn{width:26px;height:26px;border-radius:50%;border:1px solid #f5c6c3;background:#fff5f5;color:var(--red);font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;margin-top:2px;flex-shrink:0}
@@ -187,26 +192,8 @@ html,body{min-height:100vh;background:var(--gray-100);font-family:'DM Sans',sans
 
   <div class="card">
     <div class="card-header">Pallet Components</div>
-    <div class="card-body" style="padding-bottom:10px;overflow-x:auto">
-      <table class="ct">
-        <colgroup>
-          <col style="width:36px">
-          <col style="width:106px">
-          <col style="width:70px">
-          <col style="width:70px">
-          <col style="width:70px">
-          <col style="width:44px">
-          <col style="width:48px">
-          <col style="width:26px">
-        </colgroup>
-        <thead>
-          <tr>
-            <th>Qty</th><th>Piece</th><th>Thick.</th><th>Width</th><th>Length</th>
-            <th style="text-align:right" id="th-bf">BF</th><th style="text-align:right" id="th-totbf">Tot.BF</th><th></th>
-          </tr>
-        </thead>
-        <tbody id="tbody"></tbody>
-      </table>
+    <div class="card-body" style="padding-bottom:10px">
+      <div id="tbody"></div>
       <button class="add-btn" onclick="addRow()">+ Add piece</button>
     </div>
     <div class="bf-bar" data-modes="nueva combinada madera"><span id="lbl-totbf">Total BF / pallet:</span> <span id="total-bf">0.00</span></div>
@@ -384,8 +371,6 @@ function applyModeVisibility(){
   });
   document.getElementById('freight-label').textContent = mode==='madera' ? 'Transporte $' : 'Freight $';
   document.getElementById('lbl-totbf').textContent = mode==='madera' ? 'Total BF (order):' : 'Total BF / pallet:';
-  document.getElementById('th-bf').textContent = mode==='remanufacturada' ? '—' : 'BF';
-  document.getElementById('th-totbf').textContent = mode==='remanufacturada' ? '$ Total' : 'Tot.BF';
   const badgeText={nueva:'New Pallet',combinada:'Combined Pallet',remanufacturada:'Remanufactured Pallet',madera:'Wood Order'};
   document.getElementById('header-badge').textContent = badgeText[mode];
   document.getElementById('lbl-cost').textContent = mode==='madera' ? 'Cost/BF' : 'Cost/pallet';
@@ -423,32 +408,41 @@ function render(){
     const tbfText=flat?'$'+(r.qty*r.rprice).toFixed(2):(b*r.qty).toFixed(2);
     const dims=getDims(r.piece);
     const tL=inList(dims.thick,r.t),wL=inList(dims.width,r.w),lL=inList(dims.length,r.l);
-    const tr=document.createElement('tr');
-    tr.dataset.id=r.id;
-    tr.innerHTML=`
-      <td><input class="ti" type="number" min="1" value="${r.qty}" inputmode="numeric" oninput="sf(${r.id},'qty',this.value)"></td>
-      <td>
-        <select class="ts" onchange="pieceChange(${r.id},this.value)">${PIECES.map(p=>`<option ${p===r.piece?'selected':''}>${p}</option>`).join('')}</select>
-        ${(mode==='nueva'||mode==='combinada')?`<select class="ts cond-ts" onchange="condChange(${r.id},this.value)"><option value="new" ${r.cond!=='recycled'&&r.cond!=='habilitada'?'selected':''}>New</option>${mode==='combinada'?`<option value="recycled" ${r.cond==='recycled'?'selected':''}>Recycled</option>`:''}<option value="habilitada" ${r.cond==='habilitada'?'selected':''}>Habilitada</option></select>`:''}
+    const showCondToggle=(mode==='nueva'||mode==='combinada');
+    const card=document.createElement('div');
+    card.className='comp-card';
+    card.dataset.id=r.id;
+    card.innerHTML=`
+      <div class="comp-row1">
+        <select class="ts comp-piece" onchange="pieceChange(${r.id},this.value)">${PIECES.map(p=>`<option ${p===r.piece?'selected':''}>${p}</option>`).join('')}</select>
+        <input class="ti comp-qty" type="number" min="1" value="${r.qty}" inputmode="numeric" oninput="sf(${r.id},'qty',this.value)">
+        <button class="del-btn" onclick="delRow(${r.id})">×</button>
+      </div>
+      ${showCondToggle?`
+      <div class="comp-cond">
+        <select class="ts cond-ts" onchange="condChange(${r.id},this.value)"><option value="new" ${r.cond!=='recycled'&&r.cond!=='habilitada'?'selected':''}>New</option>${mode==='combinada'?`<option value="recycled" ${r.cond==='recycled'?'selected':''}>Recycled</option>`:''}<option value="habilitada" ${r.cond==='habilitada'?'selected':''}>Habilitada</option></select>
         ${effCond(r)==='recycled'?`<input class="ci" type="number" step="0.01" min="0" value="${r.rprice}" inputmode="decimal" placeholder="$/pc" oninput="rp(${r.id},this.value)">`:''}
         ${effCond(r)==='habilitada'?`<select class="ts cond-ts" onchange="habilitadaChange(${r.id},this.value)"><option value="3.5" ${near(r.w,3.5)?'selected':''}>3.5" — $0.55</option><option value="5.5" ${near(r.w,5.5)?'selected':''}>5.5" — $0.83</option></select><input class="ci" type="number" step="0.01" min="0" value="${r.rprice}" inputmode="decimal" placeholder="$/pc" oninput="rp(${r.id},this.value)">`:''}
-      </td>
-      <td>
-        <select class="ts" data-rid="${r.id}" data-f="t" onchange="dc(this)">${dimOpts(dims.thick,r.t,'"')}</select>
-        ${!tL?`<input class="ci" type="number" step="0.001" min="0.001" value="${r.t}" inputmode="decimal" oninput="cd(${r.id},'t',this.value)">`:''}
-      </td>
-      <td>
-        <select class="ts" data-rid="${r.id}" data-f="w" onchange="dc(this)">${dimOpts(dims.width,r.w,'"')}</select>
-        ${!wL?`<input class="ci" type="number" step="0.001" min="0.001" value="${r.w}" inputmode="decimal" oninput="cd(${r.id},'w',this.value)">`:''}
-      </td>
-      <td>
-        <select class="ts" data-rid="${r.id}" data-f="l" onchange="dc(this)">${dimOpts(dims.length,r.l,'"')}</select>
-        ${!lL?`<input class="ci" type="number" step="0.001" min="0.001" value="${r.l}" inputmode="decimal" oninput="cd(${r.id},'l',this.value)">`:''}
-      </td>
-      <td class="bf-r" id="bf${r.id}">${bfText}</td>
-      <td class="bf-r"><span class="bf-bold" id="tbf${r.id}">${tbfText}</span></td>
-      <td><button class="del-btn" onclick="delRow(${r.id})">×</button></td>`;
-    tb.appendChild(tr);
+      </div>`:''}
+      <div class="comp-dims">
+        <div class="dim-f"><label>Thick.</label>
+          <select class="ts" data-rid="${r.id}" data-f="t" onchange="dc(this)">${dimOpts(dims.thick,r.t,'"')}</select>
+          ${!tL?`<input class="ci" type="number" step="0.001" min="0.001" value="${r.t}" inputmode="decimal" oninput="cd(${r.id},'t',this.value)">`:''}
+        </div>
+        <div class="dim-f"><label>Width</label>
+          <select class="ts" data-rid="${r.id}" data-f="w" onchange="dc(this)">${dimOpts(dims.width,r.w,'"')}</select>
+          ${!wL?`<input class="ci" type="number" step="0.001" min="0.001" value="${r.w}" inputmode="decimal" oninput="cd(${r.id},'w',this.value)">`:''}
+        </div>
+        <div class="dim-f"><label>Length</label>
+          <select class="ts" data-rid="${r.id}" data-f="l" onchange="dc(this)">${dimOpts(dims.length,r.l,'"')}</select>
+          ${!lL?`<input class="ci" type="number" step="0.001" min="0.001" value="${r.l}" inputmode="decimal" oninput="cd(${r.id},'l',this.value)">`:''}
+        </div>
+      </div>
+      <div class="comp-foot">
+        <span>BF: <span id="bf${r.id}">${bfText}</span></span>
+        <span class="bf-bold">${flat?'Price':'Total BF'}: <span id="tbf${r.id}">${tbfText}</span></span>
+      </div>`;
+    tb.appendChild(card);
   });
 }
 
