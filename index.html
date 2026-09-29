@@ -199,33 +199,6 @@ html,body{min-height:100vh;background:var(--gray-100);font-family:'DM Sans',sans
     <div class="bf-bar" data-modes="nueva combinada madera"><span id="lbl-totbf">Total BF / pallet:</span> <span id="total-bf">0.00</span></div>
   </div>
 
-  <div class="card" data-modes="nueva combinada remanufacturada">
-    <div class="card-header">Load Capacity</div>
-    <div class="card-body" style="padding:10px 14px">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:7px">
-        <div class="fp"><label>Species</label>
-          <select class="ts" id="species" onchange="speciesChange(this.value)">
-            <option>Ponderosa Pine</option>
-            <option>Southern Yellow Pine</option>
-            <option>Douglas Fir-Larch</option>
-            <option>Spruce-Pine-Fir (SPF)</option>
-          </select>
-        </div>
-        <div class="fp"><label>MOR (psi)</label><input type="number" id="mor_psi" value="8700" step="1" inputmode="decimal"></div>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px">
-        <div class="fp"><label>Safety Factor</label><input type="number" id="safety_factor" value="4" step="0.5" inputmode="decimal"></div>
-        <div class="fp"><label># Stringers</label><input type="number" id="stringer_count" value="3" min="2" step="1" inputmode="numeric"></div>
-      </div>
-    </div>
-    <div class="bf-bar">
-      <div style="width:100%;text-align:right">
-        <div>Est. floor load capacity (1 unit, no stacking): <span id="load-capacity" style="font-family:'DM Mono',monospace;font-size:15px">0 lb</span></div>
-        <div style="font-size:10px;font-weight:500;opacity:.75;text-align:right">Estimate only — single pallet on the floor, deck-board bending strength, not a certified/tested rating.</div>
-      </div>
-    </div>
-  </div>
-
   <div class="metrics">
     <div class="metric"><div class="mlabel" id="lbl-cost">Cost/pallet</div><div class="mvalue" id="m-cost">$0.00</div></div>
     <div class="metric hi"><div class="mlabel" id="lbl-sale">Sale/pallet</div><div class="mvalue" id="m-sale">$0.00</div></div>
@@ -318,33 +291,7 @@ function range(start,end,step){
 
 let rows=[], idc=0, curMsg='', mode='nueva';
 const MODE_LABEL={nueva:'New',combinada:'Combined',remanufacturada:'Remanufactured',madera:'Wood'};
-const SPECIES_MOR={'Ponderosa Pine':8700,'Southern Yellow Pine':12800,'Douglas Fir-Larch':12400,'Spruce-Pine-Fir (SPF)':9700};
 const HABILITADA_SKUS={'3.5':{w:3.5,price:0.55},'5.5':{w:5.5,price:0.83}};
-
-function speciesChange(val){
-  const m=SPECIES_MOR[val];
-  if(m!==undefined) document.getElementById('mor_psi').value=m;
-  calc();
-}
-
-function computeLoadCapacity(){
-  const stringerCount=gv('stringer_count');
-  const mor=gv('mor_psi'),sf=gv('safety_factor')||1;
-  const deckRows=rows.filter(r=>r.piece==='Deck Board'||r.piece==='Lead Board');
-  if(deckRows.length===0||stringerCount<2) return {capacity:0,span:0};
-  const Fb=mor/sf;
-  const stringerRow=rows.find(r=>r.piece==='Stringer');
-  const stringerWidth=stringerRow?stringerRow.t:0; // stringer's cross-pallet width (our "thick" field for Stringer rows)
-  const span=(deckRows[0].l-stringerCount*stringerWidth)/(stringerCount-1);
-  if(span<=0) return {capacity:0,span:0};
-  let capacity=0;
-  deckRows.forEach(r=>{
-    const S=(r.w*r.t*r.t)/6;
-    const wMax=(8*Fb*S)/(span*span);
-    capacity+=wMax*span*r.qty;
-  });
-  return {capacity,span};
-}
 
 function newRow(qty=1,piece='Deck Board',t=1,w=4,l=48){rows.push({id:idc++,qty,piece,t,w,l,cond:'new',rprice:0.20});}
 
@@ -420,7 +367,7 @@ function render(){
       </div>
       ${showCondToggle?`
       <div class="comp-cond">
-        <select class="ts cond-ts" onchange="condChange(${r.id},this.value)"><option value="new" ${r.cond!=='recycled'&&r.cond!=='habilitada'?'selected':''}>New</option>${mode==='combinada'?`<option value="recycled" ${r.cond==='recycled'?'selected':''}>Recycled</option>`:''}<option value="habilitada" ${r.cond==='habilitada'?'selected':''}>Habilitada</option></select>
+        <select class="ts cond-ts" onchange="condChange(${r.id},this.value)"><option value="new" ${r.cond!=='recycled'&&r.cond!=='habilitada'?'selected':''}>New</option>${mode==='combinada'?`<option value="recycled" ${r.cond==='recycled'?'selected':''}>Recycled</option>`:''}<option value="habilitada" ${r.cond==='habilitada'?'selected':''}>Pre-Cut</option></select>
         ${effCond(r)==='recycled'?`<input class="ci" type="number" step="0.01" min="0" value="${r.rprice}" inputmode="decimal" placeholder="$/pc" oninput="rp(${r.id},this.value)">`:''}
         ${effCond(r)==='habilitada'?`<select class="ts cond-ts" onchange="habilitadaChange(${r.id},this.value)"><option value="3.5" ${near(r.w,3.5)?'selected':''}>3.5" — $0.55</option><option value="5.5" ${near(r.w,5.5)?'selected':''}>5.5" — $0.83</option></select><input class="ci" type="number" step="0.01" min="0" value="${r.rprice}" inputmode="decimal" placeholder="$/pc" oninput="rp(${r.id},this.value)">`:''}
       </div>`:''}
@@ -545,12 +492,12 @@ function computeQuote(){
     const wood=newBF*pBF*(1+waste),nailC=nails*nailP,cutSaw=newBF*cutSawRate,fU=freight/qty;
     cost=wood+nailC+cutSaw+labor+wh+ht+fU+habilitadaCost;
     items=[['Lumber',wood],['Nails',nailC],['Cut & Saw',cutSaw],['Labor',labor],['Warehouse',wh],['HT',ht],['Freight/pallet',fU]];
-    if(habilitadaCost>0) items.splice(1,0,['Habilitada',habilitadaCost]);
+    if(habilitadaCost>0) items.splice(1,0,['Pre-Cut',habilitadaCost]);
   } else if(mode==='combinada'){
     const wood=newBF*pBF*(1+waste),nailC=nails*nailP,cutSaw=newBF*cutSawRate,fU=freight/qty;
     cost=wood+recycledCost+nailC+cutSaw+labor+wh+ht+fU+habilitadaCost;
     items=[['Lumber',wood],['Recycled materials',recycledCost],['Nails',nailC],['Cut & Saw',cutSaw],['Labor',labor],['Warehouse',wh],['HT',ht],['Freight/pallet',fU]];
-    if(habilitadaCost>0) items.splice(2,0,['Habilitada',habilitadaCost]);
+    if(habilitadaCost>0) items.splice(2,0,['Pre-Cut',habilitadaCost]);
   } else if(mode==='remanufacturada'){
     const nailC=nails*nailP,fU=freight/qty;
     cost=recycledCost+nailC+labor+wh+ht+fU;
@@ -595,9 +542,6 @@ function calc(){
   document.getElementById('total-sale').textContent='$'+(q.price*q.divisor).toFixed(2);
   document.getElementById('breakdown').innerHTML=q.items.map(([l,v])=>
     `<div class="bd-item"><span class="bl">${l}</span><span class="bv">$${v.toFixed(2)}</span></div>`).join('');
-  const lc=computeLoadCapacity();
-  const lcEl=document.getElementById('load-capacity');
-  if(lcEl) lcEl.textContent=`${lc.capacity.toFixed(0)} lb (${(lc.capacity/2.2046).toFixed(0)} kg)`;
 }
 
 function buildMsg(){
@@ -609,12 +553,7 @@ function buildMsg(){
   const sale=q.price*q.divisor;
   const lines=rows.map(r=>`  • ${r.qty} ${r.piece}${effCond(r)==='recycled'?' (reciclado)':''} — ${r.t}"x${r.w}"x${r.l}"`).join('\n');
   const qtyLine=mode==='madera'?`📦 Total board feet: ${q.newBF.toFixed(2)} BF`:`📦 Quantity: ${q.qty} pallets`;
-  let lcLine='';
-  if(mode!=='madera'){
-    const lc=computeLoadCapacity();
-    if(lc.capacity>0) lcLine=`\n⚖️ Est. floor load capacity (1 unit, no stacking): ${lc.capacity.toFixed(0)} lb (${(lc.capacity/2.2046).toFixed(0)} kg) — estimate only, not a certified rating`;
-  }
-  return `Dear ${gs('customer')||'Customer'},\n\nPlease find our quote:\n\n📅 Date: ${gs('date')}\n${qtyLine}${palletSize?'\n📐 Pallet size: '+palletSize:''}\n\n*SPECIFICATIONS:*\n${lines}\n\n💲 *Price per ${unitWord}: $${q.price.toFixed(2)}*\n💲 *Total order: $${sale.toFixed(2)}*${lcLine}\n\nIncludes materials, labor & ${mode==='madera'?'transport':'freight'}.\n\nBest regards,\n*Custom Crates & Pallets*`;
+  return `Dear ${gs('customer')||'Customer'},\n\nPlease find our quote:\n\n📅 Date: ${gs('date')}\n${qtyLine}${palletSize?'\n📐 Pallet size: '+palletSize:''}\n\n*SPECIFICATIONS:*\n${lines}\n\n💲 *Price per ${unitWord}: $${q.price.toFixed(2)}*\n💲 *Total order: $${sale.toFixed(2)}*\n\nIncludes materials, labor & ${mode==='madera'?'transport':'freight'}.\n\nBest regards,\n*Custom Crates & Pallets*`;
 }
 
 function openModal(){
@@ -790,7 +729,7 @@ async function exportQuote(){
   }
   if(habilitadaRows.length&&(newRows.length||recycledRows.length)){
     ws.getRow(r).height=18;
-    mg(ws,r,2,7,{val:'HABILITADA (PRE-DIMENSIONED) COMPONENTS',bold:true,size:9,color:BRAND,bg:BLIGHT});
+    mg(ws,r,2,7,{val:'PRE-CUT COMPONENTS',bold:true,size:9,color:BRAND,bg:BLIGHT});
     [9,10].forEach(c=>sc(ws,r,c,{bg:BLIGHT,useBorder:false}));
     r++;
   }
@@ -800,7 +739,7 @@ async function exportQuote(){
     habEnd=r-1;
   }
 
-  // Total Board Feet banner (new lumber only) + Total Recycled/Habilitada Materials banners
+  // Total Board Feet banner (new lumber only) + Total Recycled/Pre-Cut Materials banners
   let totRow=null,recycledTotRow=null,habilitadaTotRow=null;
   if(newStart){
     totRow=r; ws.getRow(totRow).height=22;
@@ -818,64 +757,12 @@ async function exportQuote(){
   }
   if(habStart){
     habilitadaTotRow=r; ws.getRow(habilitadaTotRow).height=22;
-    ws.mergeCells(habilitadaTotRow,2,habilitadaTotRow,7); sc(ws,habilitadaTotRow,2,{val:'Total Habilitada Materials',bold:true,size:10,color:'FFFFFF',bg:BMID,halign:'right'});
+    ws.mergeCells(habilitadaTotRow,2,habilitadaTotRow,7); sc(ws,habilitadaTotRow,2,{val:'Total Pre-Cut Materials',bold:true,size:10,color:'FFFFFF',bg:BMID,halign:'right'});
     sc(ws,habilitadaTotRow,8,{formula:`SUM(H${habStart}:H${habEnd})`,bold:true,size:11,color:'FFFFFF',bg:BMID,halign:'center',numFmt:'"$"#,##0.00'});
     [9,10].forEach(c=>sc(ws,habilitadaTotRow,c,{bg:BMID,useBorder:false}));
     r++;
   }
   ws.getRow(r).height=6; r++;
-
-  // LOAD CAPACITY (ESTIMATE) — deck-board bending, not a certified/tested rating.
-  // Skipped in Wood mode: there's no assembled deck to estimate a span for.
-  let lcRow=null;
-  if(mode!=='madera'){
-    const deckLines=componentRowMap.filter(c=>c.piece==='Deck Board'||c.piece==='Lead Board');
-    if(deckLines.length){
-      ws.getRow(r).height=18;
-      mg(ws,r,2,10,{val:'LOAD CAPACITY (ESTIMATE)',bold:true,size:8,color:GTXT,bg:GHDR});
-      r++;
-      ws.getRow(r).height=24;
-      sc(ws,r,2,{val:'Species',bold:true,size:9,color:GTXT,bg:GHDR});
-      ws.mergeCells(r,3,r,4); sc(ws,r,3,{val:gs('species'),size:10,color:'0000FF'});
-      sc(ws,r,5,{val:'MOR (psi)',bold:true,size:9,color:GTXT,bg:GHDR});
-      sc(ws,r,6,{val:gv('mor_psi'),size:10,color:'0000FF',numFmt:'#,##0'});
-      sc(ws,r,7,{val:'Safety Factor',bold:true,size:9,color:GTXT,bg:GHDR});
-      sc(ws,r,8,{val:gv('safety_factor'),size:10,color:'0000FF',numFmt:'0.0'});
-      sc(ws,r,9,{val:'# Stringers',bold:true,size:9,color:GTXT,bg:GHDR});
-      sc(ws,r,10,{val:gv('stringer_count'),size:10,color:'0000FF',numFmt:'0'});
-      const morCell=`F${r}`,sfCell=`H${r}`,stCell=`J${r}`;
-      r++;
-      ws.getRow(r).height=22;
-      sc(ws,r,2,{val:'Span between stringers (in)',size:10,color:GTXT});
-      const stringerLine=componentRowMap.find(c=>c.piece==='Stringer');
-      const spanFormula=stringerLine
-        ? `(F${deckLines[0].row}-${stCell}*D${stringerLine.row})/(${stCell}-1)`
-        : `F${deckLines[0].row}/(${stCell}-1)`;
-      ws.mergeCells(r,3,r,4); sc(ws,r,3,{formula:spanFormula,size:10,halign:'right',numFmt:'0.00'});
-      const spanCell=`C${r}`;
-      r++;
-      const capStart=r;
-      deckLines.forEach((c,idx)=>{
-        ws.getRow(r).height=20;
-        const bg=idx%2===0?'FFFFFF':GALT;
-        ws.mergeCells(r,2,r,7); sc(ws,r,2,{val:`Capacity — ${c.piece} (row ${c.row})`,size:10,color:GTXT,bg});
-        sc(ws,r,8,{formula:`8*(${morCell}/${sfCell})*(E${c.row}*D${c.row}^2/6)/${spanCell}*B${c.row}`,bg,halign:'right',numFmt:'#,##0'});
-        [9,10].forEach(cc=>sc(ws,r,cc,{bg,useBorder:false}));
-        r++;
-      });
-      const capEnd=r-1;
-      lcRow=r; ws.getRow(lcRow).height=26;
-      ws.mergeCells(lcRow,2,lcRow,6); sc(ws,lcRow,2,{val:'Est. Floor Load Capacity (1 unit, no stacking)',bold:true,size:11,color:'FFFFFF',bg:BRAND});
-      sc(ws,lcRow,7,{formula:`SUM(H${capStart}:H${capEnd})`,bold:true,size:11,color:'FFFFFF',bg:BRAND,halign:'right',numFmt:'#,##0" lb"'});
-      ws.mergeCells(lcRow,8,lcRow,10);
-      sc(ws,lcRow,8,{formula:`G${lcRow}/2.2046`,bold:true,size:11,color:'FFFFFF',bg:BRAND,halign:'right',numFmt:'#,##0" kg"'});
-      r++;
-      ws.getRow(r).height=16;
-      mg(ws,r,2,10,{val:'Estimate only — single pallet on the floor, deck-board bending strength, not a certified/tested rating.',size:8,color:GTXT,italic:true,useBorder:false});
-      r++;
-    }
-    ws.getRow(r).height=6; r++;
-  }
 
   // now that totRow is known, fill in J5 — a plain Qty input for pallet modes,
   // or a live link to the Total Board Feet banner for Wood mode
@@ -907,7 +794,7 @@ async function exportQuote(){
       ['HT',A.ht],
       ['Freight/pallet',`IFERROR(${A.freight}/${A.qty},0)`],
     ];
-    if(habilitadaRef) bdItems.splice(1,0,['Habilitada',habilitadaRef]);
+    if(habilitadaRef) bdItems.splice(1,0,['Pre-Cut',habilitadaRef]);
   } else if(mode==='combinada'){
     bdItems=[
       ['Lumber',totBFRef?`${totBFRef}*${A.lumberPrice}*(1+${A.waste})`:null],
@@ -919,7 +806,7 @@ async function exportQuote(){
       ['HT',A.ht],
       ['Freight/pallet',`IFERROR(${A.freight}/${A.qty},0)`],
     ];
-    if(habilitadaRef) bdItems.splice(2,0,['Habilitada',habilitadaRef]);
+    if(habilitadaRef) bdItems.splice(2,0,['Pre-Cut',habilitadaRef]);
   } else if(mode==='remanufacturada'){
     bdItems=[
       ['Recycled materials',recycledRef],
@@ -1014,7 +901,7 @@ function resetForm(){
 }
 
 document.getElementById('date').value=new Date().toISOString().split('T')[0];
-['lumber_price','nail_price','nails','waste','qty','margin','freight','labor_cost','warehouse_cost','ht_cost','cut_saw','mor_psi','safety_factor','stringer_count'].forEach(id=>{
+['lumber_price','nail_price','nails','waste','qty','margin','freight','labor_cost','warehouse_cost','ht_cost','cut_saw'].forEach(id=>{
   document.getElementById(id).addEventListener('input',calc);
 });
 newRow(1,'Deck Board',0.625,3.5,40);
